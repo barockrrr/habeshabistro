@@ -1,0 +1,122 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  RECEIVED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum AdminRole {
+  MANAGER // full access: menu, roles, orders, reservations
+  KITCHEN // orders queue only — can't touch menu, prices, or other staff accounts
+}
+
+model AdminUser {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         AdminRole @default(MANAGER)
+  createdAt    DateTime  @default(now())
+}
+
+// Customer accounts are optional — guest checkout (name+phone only) still
+// works. Logging in just adds order history and skips re-typing details.
+model Customer {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String   @unique
+  email        String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  orders       Order[]
+}
+
+enum MenuCategory {
+  FOUNDATION
+  BREAKFAST
+  TIBS
+  WOT
+  RAW_MEAT
+  VEGAN_FASTING
+  COMBOS_REGIONAL
+  APPS_SIDES
+}
+
+model MenuItem {
+  id           String       @id @default(cuid())
+  nameEn       String
+  nameAm       String? // optional — not every regional dish has a verified Amharic spelling yet, see seed.ts
+  emoji        String       @default("🍽️")
+  imageUrl     String? // real photo, shown instead of the emoji tile when set
+  description  String
+  price        Int // stored in ETB, whole birr (no cents in common usage)
+  tag          String?
+  category     MenuCategory @default(APPS_SIDES)
+  isVegetarian Boolean      @default(false)
+  isSpicy      Boolean      @default(false)
+  available    Boolean      @default(true) // staff can 86 an item without deleting it
+  sortOrder    Int          @default(0)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  orderItems   OrderItem[]
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  customerName  String
+  customerPhone String
+  customerId    String? // set only if a logged-in customer placed the order
+  customer      Customer?   @relation(fields: [customerId], references: [id])
+  status        OrderStatus @default(RECEIVED)
+  totalPrice    Int
+  items         OrderItem[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId   String
+  menuItem     MenuItem @relation(fields: [menuItemId], references: [id])
+  quantity     Int
+  priceAtOrder Int // snapshot — protects order history if the menu price later changes
+}
+
+model Reservation {
+  id        String            @id @default(cuid())
+  name      String
+  phone     String
+  guests    Int
+  date      String // stored as "YYYY-MM-DD" to match the <input type="date"> value directly
+  time      String // stored as "HH:mm" to match <input type="time">
+  status    ReservationStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+}
+
+// Backs simple abuse protection on public endpoints (orders, reservations).
+// One row per request; old rows can be pruned periodically (see docs).
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String // e.g. "order:203.0.113.4"
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}

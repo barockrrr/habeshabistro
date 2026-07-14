@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* The tilet band — a woven-stripe pattern pulled from Habesha textile and
+   mesob basket trim, used as a structural divider rather than decoration. */
+.tilet-band {
+  height: 6px;
+  background: repeating-linear-gradient(
+    90deg,
+    #3b6b45 0,
+    #3b6b45 24px,
+    #e8a93b 24px,
+    #e8a93b 48px,
+    #a8371f 48px,
+    #a8371f 72px,
+    #f0dfc0 72px,
+    #f0dfc0 96px
+  );
+}
+
+:focus-visible {
+  outline: 2px solid #e8a93b;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
